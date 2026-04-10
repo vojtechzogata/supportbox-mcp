@@ -137,23 +137,34 @@ function createMcpServer() {
       mailbox_id: z.number().int().optional().describe("SupportBox mailbox ID (required for new tickets)"),
       ticket_id: z.number().int().optional().describe("Ticket ID to reply to (for replies)"),
       source_message_id: z.number().int().optional().describe("ID of the message being replied to (auto-fetched if omitted)"),
-      to: z.string().email().describe("Recipient email address"),
+      to: z.string().email().optional().describe("Recipient email address. For replies (ticket_id set), this is auto-detected from the ticket's incoming message if omitted."),
       subject: z.string().describe("Email subject"),
       body: z.string().describe("Email body (plain text)"),
     },
     async ({ mailbox_id, ticket_id, source_message_id, to, subject, body }) => {
       let result;
       if (ticket_id) {
+        const msgData = await apiFetch(`/mail-tickets/${ticket_id}/messages?per_page=50`);
+        const msgs = msgData.items ?? msgData ?? [];
+
+        // Auto-detect source_message_id
         let msgId = source_message_id;
         if (!msgId) {
-          const msgData = await apiFetch(`/mail-tickets/${ticket_id}/messages?per_page=50`);
-          const msgs = msgData.items ?? msgData ?? [];
           msgId = msgs[msgs.length - 1]?.id ?? msgs[0]?.id;
           if (!msgId) throw new Error("Could not find message ID for this ticket");
         }
+
+        // Auto-detect customer email from first incoming message
+        let recipientEmail = to;
+        if (!recipientEmail) {
+          const inMsg = msgs.find(m => m.type === "in" || m.type === "in_new");
+          recipientEmail = inMsg?.from?.email ?? inMsg?.sender_email;
+          if (!recipientEmail) throw new Error("Could not detect customer email from ticket. Please provide 'to' explicitly.");
+        }
+
         result = await apiFetch(`/mail-tickets/${ticket_id}/messages`, {
           method: "POST",
-          body: JSON.stringify({ type: "out_reply", to, subject, text: body, source_message_id: msgId }),
+          body: JSON.stringify({ type: "out_reply", to: recipientEmail, subject, text: body, source_message_id: msgId }),
         });
       } else {
         if (!mailbox_id) throw new Error("mailbox_id is required when creating a new ticket");
