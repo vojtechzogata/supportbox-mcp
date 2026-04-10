@@ -187,7 +187,12 @@ app.use("/mcp", (req, res, next) => {
 });
 
 // Health check
-app.get("/health", (req, res) => res.json({ status: "ok", service: "supportbox-mcp" }));
+app.get("/health", (req, res) => res.json({
+  status: "ok",
+  service: "supportbox-mcp",
+  has_token: !!process.env.SUPPORTBOX_TOKEN,
+  token_length: process.env.SUPPORTBOX_TOKEN?.length ?? 0,
+}));
 
 // Session storage
 const sessions = new Map();
