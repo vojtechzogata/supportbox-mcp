@@ -20,7 +20,7 @@ const MCP_AUTH_TOKEN = process.env.MCP_AUTH_TOKEN;
 
 function getToken() {
   const token = process.env.SUPPORTBOX_TOKEN;
-  if (!token) throw new Error("SUPPORTBOX_TOKEN environment variable is not set");
+  if (!token) throw new Error(`SUPPORTBOX_TOKEN environment variable is not set. Available env keys: ${Object.keys(process.env).filter(k => !k.includes('npm') && !k.includes('NODE')).join(', ')}`);
   return token;
 }
 
